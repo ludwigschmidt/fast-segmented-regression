@@ -18,3 +18,5 @@ and [`examples/piecewise_linaer_experiments.ipynb`](https://github.com/ludwigsch
 contain some of the experiments in the paper.
 A word of caution: these notebooks were written with an earlier version of Julia and might not work out of the box at the moment.
 The example notebooks above have been migrated to Julia v0.5 however.
+
+If you want to use the code from Python, the [pyjulia](https://github.com/JuliaPy/pyjulia) package might be helpful.
