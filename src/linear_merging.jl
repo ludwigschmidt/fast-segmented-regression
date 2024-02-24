@@ -229,8 +229,7 @@ function fit_linear_merging(X::Array{Float64,2}, y::Array{Float64,1}, sigma::Flo
 
     # Select the num_holdout_pieces'th largest error (counting from the largest
     # error down) as threshold.
-    sorted_errors = sort(candidate_errors)
-    error_threshold = sorted_errors[max(1, length(candidate_pieces) - num_holdout_pieces + 1)]
+    error_threshold = partialsort(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
 
 
     # Count how many of the intervals are exactly at the threshold to avoid

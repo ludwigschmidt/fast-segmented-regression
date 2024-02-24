@@ -179,9 +179,7 @@ function fit_histogram_merging(ys::Array{Float64, 1}, sigma::Float64, num_target
 
     # Select the num_holdout_pieces'th largest error (counting from the largest
     # error down) as threshold.
-    sorted_errors = sort(candidate_errors)
-    k = max(1, length(candidate_pieces) - num_holdout_pieces + 1)  # Ensure k is at least 1
-    error_threshold = sorted_errors[k]
+    error_threshold = partialsort(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
    
     # Count how many of the intervals are exactly at the threshold to avoid
     # corner cases.
