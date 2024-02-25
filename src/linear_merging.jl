@@ -1,5 +1,8 @@
+using Printf
+using LinearAlgebra
+using StatsBase
 
-immutable LinearPiece
+struct LinearPiece
   left_index::Int
   right_index::Int
   theta::Array{Float64,1}
@@ -35,19 +38,20 @@ function generate_equal_size_linear_data(endpoint_values, n, sigma)
   # TODO: change
   X = zeros(Float64, (n, 2))
   X[:,1] = ones(Float64, n)
-  X[:,2] = collect(linspace(0.0, 1.0, n))
+  X[:, 2] = collect(range(0.0, stop=1.0, length=n))
   
   num_segments = length(endpoint_values) - 1
   num_per_bin = floor(Int, n / num_segments)
   num_bins_plusone = n % num_segments
 
-  ystar = Array(Float64,0)
-  for ii = 1 : num_bins_plusone
-    append!(ystar, collect(linspace(endpoint_values[ii], endpoint_values[ii + 1], num_per_bin + 1)))
+  ystar = Array{Float64}(undef,0)
+  for ii = 1:num_bins_plusone
+    append!(ystar, collect(range(endpoint_values[ii], stop=endpoint_values[ii + 1], length=num_per_bin + 1)))
   end
-  for ii = (num_bins_plusone + 1) : num_segments
-    append!(ystar, collect(linspace(endpoint_values[ii], endpoint_values[ii + 1], num_per_bin)))
+  for ii = (num_bins_plusone + 1):num_segments
+    append!(ystar, collect(range(endpoint_values[ii], stop=endpoint_values[ii + 1], length=num_per_bin)))
   end
+
   y = ystar + sigma * randn(n)
   return y, ystar, X
 end
@@ -59,17 +63,17 @@ function generate_equal_size_random_regression_data(num_segments, n, d, sigma)
   num_per_bin = floor(Int, n / num_segments)
   num_bins_plusone = n % num_segments
   
-  ystar = Array(Float64, 0)
+  ystar = Array{Float64}(undef, 0)
   cur_start = 1
   for ii = 1 : num_bins_plusone
     cur_end = cur_start + num_per_bin
-    beta = 2 * rand(Float64, d) + 1
+    beta = 2 * rand(Float64, d) .+ 1
     append!(ystar, vec(X[cur_start:cur_end,:] * beta))
     cur_start = cur_end + 1
   end
   for ii = (num_bins_plusone + 1) : num_segments
     cur_end = cur_start + num_per_bin - 1
-    beta = 2 * rand(Float64, d) + 1
+    beta = 2 * rand(Float64, d) .+ 1
     append!(ystar, vec(X[cur_start:cur_end,:] * beta))
     cur_start = cur_end + 1
   end
@@ -84,7 +88,7 @@ function partition_to_vector(X::Array{Float64,2}, pieces::Array{LinearPiece,1})
   if n != rows
     error("number of rows and rightmost index must match")
   end
-  y = Array(Float64, n)
+  y = Array{Float64}(undef, n)
   for ii = 1 : length(pieces)
     p = pieces[ii]
     y[p.left_index : p.right_index] = X[p.left_index : p.right_index, :] * p.theta
@@ -161,7 +165,7 @@ function fit_linear_dp(X::Array{Float64,2}, y::Array{Float64,1}, num_target_piec
   end
 
   # Reconstruct solution
-  sol = Array(LinearPiece, k)
+  sol = Array{LinearPiece}(undef, k)
   cur_pos = n
   for ii = 1:k
     if cur_pos == 0
@@ -186,7 +190,7 @@ function fit_linear_merging(X::Array{Float64,2}, y::Array{Float64,1}, sigma::Flo
   end
 
   # Initial partition
-  cur_pieces = Array(LinearPiece, 0)
+  cur_pieces = Array{LinearPiece}(undef, 0)
   num_remaining = n
   cur_left = 1
   while num_remaining > 0
@@ -196,15 +200,15 @@ function fit_linear_merging(X::Array{Float64,2}, y::Array{Float64,1}, sigma::Flo
     push!(cur_pieces, tmp_piece)
     cur_left = cur_right + 1
   end
-  prev_pieces = Array(LinearPiece, 0)
+  prev_pieces = Array{LinearPiece}(undef, 0)
   
   while length(cur_pieces) > num_target_pieces && length(cur_pieces) != length(prev_pieces)
     prev_pieces = cur_pieces
-    cur_pieces = Array(LinearPiece, 0)
+    cur_pieces = Array{LinearPiece}(undef, 0)
 
     # Create a list of merging candidates and compute their errors
-    candidate_pieces = Array(LinearPiece, 0)
-    candidate_errors = Array(Float64, 0)
+    candidate_pieces = Array{LinearPiece}(undef, 0)
+    candidate_errors = Array{Float64}(undef, 0)
     for ii = 1:floor(Int, length(prev_pieces) / 2)
       left_piece = prev_pieces[2 * ii - 1]
       right_piece = prev_pieces[2 * ii]
@@ -225,7 +229,8 @@ function fit_linear_merging(X::Array{Float64,2}, y::Array{Float64,1}, sigma::Flo
 
     # Select the num_holdout_pieces'th largest error (counting from the largest
     # error down) as threshold.
-    error_threshold = select(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
+    error_threshold = partialsort(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
+
 
     # Count how many of the intervals are exactly at the threshold to avoid
     # corner cases.

@@ -1,5 +1,9 @@
+using Printf
+using Statistics
+using LinearAlgebra
+using StatsBase
 
-immutable HistogramPiece
+struct HistogramPiece
   left_index::Int
   right_index::Int
   theta::Float64
@@ -11,12 +15,12 @@ function piece_length(p::HistogramPiece)
 end
 
 
-function histogram_piece_merging_error(p::HistogramPiece, ys::Array{Float64, 1}, sigma::Float64)
-  return norm(ys[p.left_index : p.right_index] - p.theta)^2 - piece_length(p) * sigma^2
+function histogram_piece_merging_error(p::HistogramPiece, ys::Vector{Float64}, sigma::Float64)
+  return norm(ys[p.left_index : p.right_index] .- p.theta)^2 - piece_length(p) * sigma^2
 end
 
 
-immutable HistogramStatistics
+struct HistogramStatistics
   sum::Array{Float64, 1}
   sum_sq::Array{Float64, 1}
 end
@@ -24,8 +28,8 @@ end
 
 function HistogramStatistics(ys::Array{Float64, 1})
   n = length(ys)
-  sum = Array(Float64, n + 1)
-  sum_sq = Array(Float64, n + 1)
+  sum = Array{Float64}(undef, n + 1)
+  sum_sq = Array{Float64}(undef, n + 1)
   sum[1] = 0.0
   sum_sq[1] = 0.0
   for ii = 1:n
@@ -49,7 +53,7 @@ end
 function generate_equal_size_histogram_data(bin_values, n, sigma)
   num_per_bin = floor(Int, n / length(bin_values))
   num_bins_plusone = n % length(bin_values)
-  ystar = Array(Float64,0)
+  ystar = Array{Float64}(undef, 0)
   for ii = 1 : num_bins_plusone
     append!(ystar, bin_values[ii] * ones(num_per_bin + 1))
   end
@@ -63,10 +67,10 @@ end
 
 function partition_to_vector(pieces::Array{HistogramPiece, 1})
   n = pieces[end].right_index
-  y = Array(Float64, n)
+  y = Array{Float64}(undef, n)
   for ii = 1 : length(pieces)
     p = pieces[ii]
-    y[p.left_index : p.right_index] = p.theta
+    y[p.left_index : p.right_index] .= p.theta
   end
   return y
 end
@@ -108,7 +112,7 @@ function fit_histogram_dp(ys::Array{Float64, 1}, num_target_pieces::Int)
   end
 
   # Reconstruct solution
-  sol = Array(HistogramPiece, k)
+  sol = Array{HistogramPiece}(undef, k)
   cur_pos = n
   for ii = 1:k
     if cur_pos == 0
@@ -134,7 +138,7 @@ function fit_histogram_merging(ys::Array{Float64, 1}, sigma::Float64, num_target
   end
 
   # Initial partition
-  cur_pieces = Array(HistogramPiece, 0)
+  cur_pieces = Array{HistogramPiece}(undef, 0)
   num_remaining = n
   cur_left = 1
   while num_remaining > 0
@@ -145,15 +149,15 @@ function fit_histogram_merging(ys::Array{Float64, 1}, sigma::Float64, num_target
     push!(cur_pieces, tmp_piece)
     cur_left = cur_right + 1
   end
-  prev_pieces = Array(HistogramPiece, 0)
+  prev_pieces = Array{HistogramPiece}(undef, 0)
   
   while length(cur_pieces) > num_target_pieces && length(cur_pieces) != length(prev_pieces)
     prev_pieces = cur_pieces
-    cur_pieces = Array(HistogramPiece, 0)
+    cur_pieces = Array{HistogramPiece}(undef, 0)
 
     # Create a list of merging candidates and compute their errors
-    candidate_pieces = Array(HistogramPiece, 0)
-    candidate_errors = Array(Float64, 0)
+    candidate_pieces = Array{HistogramPiece}(undef, 0)
+    candidate_errors = Array{Float64}(undef, 0)
     for ii = 1:floor(Int, length(prev_pieces) / 2)
       left_piece = prev_pieces[2 * ii - 1]
       right_piece = prev_pieces[2 * ii]
@@ -175,7 +179,7 @@ function fit_histogram_merging(ys::Array{Float64, 1}, sigma::Float64, num_target
 
     # Select the num_holdout_pieces'th largest error (counting from the largest
     # error down) as threshold.
-    error_threshold = select(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
+    error_threshold = partialsort(candidate_errors, max(0, length(candidate_pieces) - num_holdout_pieces + 1))
    
     # Count how many of the intervals are exactly at the threshold to avoid
     # corner cases.
